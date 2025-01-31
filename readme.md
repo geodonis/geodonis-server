@@ -1,4 +1,4 @@
-# Geodonis
+# Geodonis Server
 
 ## License
 
