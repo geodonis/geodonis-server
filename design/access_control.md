@@ -22,9 +22,8 @@ Here are the main tables used in access control:
          - "resource" - Permissions for user in this group apply to actions on specific resources, according to a group list for that specific resource.
          - "user" - Permissions for users in this group apply to all resources or actions for a group owner.
          - "global" - Permissions for users in this group apply globally to resources or actions, independent of resource id or owner.
-      - `type`: This is a label used to indicate a set of actions the users in this group can perform. The set of actions for the type are identified
-        in the access control logic code in the initial implementation. (In future implementations, we may allow listing the actions allowed by a group
-        to be stored in a database rather than from an enumerated from predefined types.)
+      - `permission_set`: This is a reference to an enumeration of lists of actions the users in this group can perform. (In future implementations,
+        we may the fixed enumeration with a reference to a database list of actions, allowing more granular permission lists.)
 
 3. `user_group` table: The table assigns a user to a group.
    - Important fields:
@@ -37,9 +36,10 @@ Here are the main tables used in access control:
 
 ## Access Control Determination
 
-There is an enumeration of permissions-requiring actions in the service, and associated targets for the given action. Some target types
-are further specified by an ID (resources and users). In the case where the target is a resource, their is also a resource owner and
-groups associated with these resources. Together these parameters determine permission for the action.
+There is an enumeration of actions in the service that require permission. Each action also has a target, which is what the action
+is acting on. The target is specified by either a target type or a target type and a target id. Further, in the case where the target
+type represents a "resource", as defined above, the permission determination depends on the owner of the resource and the groups assigned
+to the resource. (A resource has an owner and a list of groups, with the owner possibly being null to represent the system being the owner.)
 
 The Access determination parameters are listed below:
 
@@ -47,7 +47,7 @@ The Access determination parameters are listed below:
 - user_groups: The groups for this user.
 - action: The action being done.
 - target_type: The target for the action.
-- target_id: (if applicable) An ID for the target. Applicable where the target is a resource or a user.
+- target_id: (if applicable) An ID for the target. Examples are when the target is a resource or a user.
 - target_owner: (if applicable) Only applicable to resources: the owner of the resource.
 - target_groups: (if applicable) Only applicable to resources: the groups assigned to the resource.
 
@@ -64,7 +64,7 @@ The Access determination parameters are listed below:
 2. User modifies a project object for which he is the owner.
     - user_id: user X
     - user_groups: (groups of user X)
-    - action: "modify"
+    - action: "update"
     - target_type: "project"
     - target_owner: user X
     - target_groups: (assigned groups of this specific project)
@@ -105,7 +105,7 @@ def has_permission(
     Parameters:
       user_id: The ID of the user attempting the action.
       user_groups: Groups for the user.
-      action: The named action (e.g., 'create', 'modify', 'access_endpoint').
+      action: The named action (e.g., 'create', 'update', 'access_endpoint').
       target_type: The type of target (e.g., 'project', 'document', 'protected_endpoint').
       target_id: (Optional) The ID of the target (if applicable).
       target_owner: (Optional) The owner ID, applicable for resource targets (if applicable).
@@ -116,113 +116,131 @@ def has_permission(
     """
 ```
 
-## Actions and Group Types
+## Actions
 
-### Actions
+### Action Enumeration
 
 This is a list of actions requiring permission in the application.
 
 1. Actions on Resources
-    - Target Type: Table name used as target.
+    - Target Type: Table name used as target type.
     - Actions:
         - view
-        - modify
+        - update
         - create
         - delete
         - assign_group_to_resource - Assign group to a resource. This is a special action in that it has two targets, the resource to which the group is assigned
             and the group that is being assigned to it. To accommodate this in the permission system, it is broken into two separate single-target actions:
-            - assign_group_to_resources: This action requires a permission for the group: to assign it to some resource.
-            - assign_groups_to_resource: This action requires a permission for the resource: to have some group assigned to it.
-        - assign_group_to_user - Assign a group to a user.
+            - assign_group_to_resources: This action requires a permission for the group: to assign it to some resource. (Used only for groups, which are a resource)
+            - assign_groups_to_resource: This action requires a permission for the resource: to have some group assigned to it. (Used for general resources)
+        - assign_group_to_user - Assign a group to a user. (Used only for groups, which are a resource)
 
 2. Actions on Users
     - Target Type: "user"
     - Actions:
         - view: view the user details
-            - not including password: no users can do this
+            - not including password: no users can view the password
             - not including name: this is granted to anyone who has access to a user resource
-        - modify: only the user can modify the user object
-        - create: only superusers can create a user
-        - delete: only superuser and the user himself can delete a user
+        - update: Modify fields for the user excluding password. (Typically only the user can update the user object)
+        - update: Modify the users password. (Typically only the user can update the password)
+        - create: Create a user
+        - delete: Delete a use (Typically only superuser and the user himself can delete a user)
     - Notes:
         - The user is not considered a resource.
 
-3. Actions on Endpoints
+3. Actions on Endpoints: This is one implementation. Other permission types can be creates.
     - Target Types:
-        - "public_endpoint"
-        - "protected_endpoint"
-        - "private_endpoint"
+        - "public_endpoint": Accessible to all visitors, logged in or not.
+        - "protected_endpoint": Accessible to all logged in users.
+        - "private_endpoint": Accessible to superusers.
     - Actions:
         - "access_endpoint"
 
-### Group Types
+4. OTHER: There may be other actions that are implementation specific. An example could be "services" the user has access to based on subscriptions.
+
+### Automatic Permission Assignments
+
+There will be some "automatic" group assignments. This is just for simplicity and to prevent users from losing access to public
+resources or access to their own private resources.
+
+- All users are given full control over resources they own, without need for any group assignment.
+    - action "full_edit" for resources they own
+    - action "assign_groups_to_resource" for resources they own
+    - action "assign_group_to_resources" for groups they own
+    - action "assign_group_to_users" for groups they own
+    - action "view" for their own user details
+    - action "update" for their own user details
+    - action "update_password" for their own user password
+    - action "delete" for their own user object
+
+The following automatic assignment makes an implicit group for public and protected access, so this does not have to be assigned for all users.
+
+- All users are implicitly granted permission to "access_endpoint" for target type "protected_endpoint"
+- All visitors (logged in or not) are implicitly granted permission to "access_endpoint" for target type "public_endpoint"
+
+This is an implementation for public groups capabilities. This allows setting different levels of public capability for user resources. Note
+that the name "public" can be construed as all visitors logged in or not, however there may be other endpoint restrictions limiting
+who can actually view/edit these resources.
+
+- All users are in the following groups implicitly, without the need to assign the group to the user.
+    - group "public_view"
+    - group "public_update"
+    - group "public_full_edit"
+
+## Permission Set Implementations
+
+Here we give some more detailed implementations for permissions sets.
+
+### Example
 
 Here is a list of types for groups given by the scope of the group. These are used to specify permissions granted by the groups.
 
-- Types for groups of scope "resource"
-    1. "view":
+- Permission sets for groups of scope "resource"
+    1. "resource:view":
         - action "view" for any resource in this group.
-    2. "update":
+    2. "resource:update":
         - action "update" for any resource in this group.
-    3. "full_edit":
+    3. "resource:full_edit":
         - actions  "create", "update", "delete" and "assign_groups_to_resource" for any resource in this group.
-    4. "public_view":
+    4. "resource:public_view":
         - Same as scope "resource" type "view" but system owned rather than user owned.
-    5. "public_update":
+    5. "resource:public_update":
         - Same as scope "resource" type "update" but system owned.
-    6. "public_full_edit":
+    6. "resource:public_full_edit":
         - Same as scope "resource" type "full_edit" but system owned.
-    7. "assign_group_to_resources":
+    7. "resource:assign_group_to_resources":
         - action "assign_group_to_resources" for any group in this group.
 
-- Types for groups of scope "user"
-    1. "view":
+- Permission sets for groups of scope "user"
+    1. "user:view":
         - action "view" for any resource owned by this user.
-    2. "update":
-        - action "update" for any resource owned by this user.
-    3. "full_edit":
+    2. "user:update":
+        - action "update" and for any resource owned by this user.
+    3. "user:full_edit":
         - actions "create"/"update"/"delete" and "assign_resource_to_groups" for any resource owned by this user.
-    4. "view_user":
+    4. "user:view_user":
         - action "view" for the user details
-    5. "assign_group_to_resources":
+    5. "user:assign_group_to_resources":
         - action "assign_group_to_resources" for any group owned by this user.
-    6. "assign_group_to_users":
+    6. "user:assign_group_to_users":
         - action "assign_group_to_users" for any group owned by this user.
-    7. "admin": Includes the following permissions:
+    7. "user:admin": Includes the following permissions:
         - includes permissions from scope "user" type "full_edit" (includes view and update permission)
         - includes permissions from scope "user" type "view_user"
         - includes permissions from scope "user" type "assign_group_to_resources"
         - includes permissions from scope "user" type "assign_group_to_users"
 
 - Types for groups of scope "global"
-    1. "protected_access":
-        - action "access_endpoint" for "protected_endpoints"
-    2. "private_access":
+    1. "global:protected_access":
+        - action "access_endpoint" for "protected_endpoint"
+    2. "global:private_access":
         - action "access_endpoint" for "private_endpoints"
-    3. "admin": Includes the following permissions:
+    3. "global:admin": Includes the following permissions:
         - permissions from scope "user" type "admin", for all users
         - action "create" for target "user", for all users
         - action "view" for target "user", for all users
         - action "delete_user" for target "user", for all users
         - action "access_endpoint" for target "private_endpoint"
-
-### Automatic Assignments
-
-There will be some "automatic" group assignments. This is just for simplicity and to prevent users from losing access to public
-resources or access to their own private resources:
-
-- All users are given full control over resources they own, without need for any group assignment.
-    - action "full_edit" for resources they own
-    - action "assign_group" for groups they own
-    - action "view" for their own user details
-    - action "modify" for their own user details
-    - action "delete" for their own user object
-- All users are in the following groups implicitly, without the need to assign the group to the user.
-    - group "public_view"
-    - group "public_update"
-    - group "public_full_edit"
-    - group "protected_access"
-- All users (logged in or not) are implicitly granted access to "public_access"
 
 ## Notes on Assignment of Resources to Groups
 
@@ -280,3 +298,25 @@ Let us examine the following scenario: User A wants to assign resource X to grou
 
 In this example above, we specified we were assigning resource X to group Y. The resource is a generic term tha represents a number
 of possible objects. It could have been something like an project object, an uploaded file object or even a group object.
+
+============================
+============================
+
+## Chat Notes
+
+### The Special Super User
+
+We can update the groups so there is no "null" option for group ownership. Instead, we create a special superuser who will
+own these special groups. The special user will be a formal user. In practice, we can create other superusers who can get
+permissions for the same actions from the special super user.
+
+Tradeoffs: Cleaner group dynamiscs for the super user? Do we compromise a conceptual difference by adding the special super user?
+
+### Decoupling access permission from delegation permission
+
+I use groups to control access to resources and to control assignment of groups to resources and users. With this I have one special
+treatment of groups, since it has two actions that do not apply to other resources. The alternative is to have something like my groups
+strictly control who can access resources (or other actions) and then a separate table that allows delegation of groups.
+
+It seems like in bigger systems the second approach is more common. It is possibly better for security?
+
