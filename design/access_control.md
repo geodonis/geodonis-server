@@ -123,7 +123,7 @@ def has_permission(
 This is a list of actions requiring permission in the application.
 
 1. Actions on Resources
-    - Target: Table name used as target.
+    - Target Type: Table name used as target.
     - Actions:
         - view
         - modify
@@ -136,7 +136,7 @@ This is a list of actions requiring permission in the application.
         - assign_group_to_user - Assign a group to a user.
 
 2. Actions on Users
-    - Target: "user"
+    - Target Type: "user"
     - Actions:
         - view: view the user details
             - not including password: no users can do this
@@ -148,14 +148,14 @@ This is a list of actions requiring permission in the application.
         - The user is not considered a resource.
 
 3. Actions on Endpoints
-    - Targets:
+    - Target Types:
         - "public_endpoint"
         - "protected_endpoint"
         - "private_endpoint"
     - Actions:
         - "access_endpoint"
 
-### "Types"
+### Group Types
 
 Here is a list of types for groups given by the scope of the group. These are used to specify permissions granted by the groups.
 
@@ -224,13 +224,11 @@ resources or access to their own private resources:
     - group "protected_access"
 - All users (logged in or not) are implicitly granted access to "public_access"
 
-## Notes on Groups
+## Notes on Assignment of Resources to Groups
 
-### Assignment of Groups
-
-One of the actions in the system is assigning resource to a group. As mentioned above, for the sake of the permission system this is
-broken down into to separate actions, assigning the resource to _some unspecified group_, and assigning _some unspecified resource_ to the group. This accommodates
-the two targets for the action be using into two actions with one target each.
+One of the actions in the system is assigning a resource to a group. As mentioned above, for the sake of the permission system this is
+broken down into to separate actions, assigning the resource to _some unspecified group_, and assigning _some unspecified resource_ to the group.
+This accommodates the two targets for the action be using two actions with one target each.
 
 An added confusion is that, to express the permission, one group is assigned to another group, so we must be careful about what each group means.
 
