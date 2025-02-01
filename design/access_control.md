@@ -320,3 +320,42 @@ strictly control who can access resources (or other actions) and then a separate
 
 It seems like in bigger systems the second approach is more common. It is possibly better for security?
 
+The thing that I think was a little kludgey about o3-mini's example is delegating the authority to delegate.
+
+- There is a delegation authority table that tells if you are allowed to delegate a permission
+- There was an added flag "can_delegate" that allowed the person the rigth to delegate this authority.
+
+suggested table:
+
+CREATE TABLE DelegationAuthority (
+    id                 SERIAL PRIMARY KEY,
+    resource_id        INTEGER NOT NULL REFERENCES Resources(id),
+    permission_set_id  INTEGER NOT NULL REFERENCES PermissionSets(id),
+    grantor_id         INTEGER NOT NULL REFERENCES Users(id),  -- Who granted the delegation
+    grantee_id         INTEGER NOT NULL REFERENCES Users(id),  -- Who receives the delegation authority
+    can_delegate       BOOLEAN NOT NULL DEFAULT FALSE,  -- If true, the grantee can further delegate this authority
+    granted_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(resource_id, permission_set_id, grantee_id)
+);
+
+alternate, which tracks more info:  
+
+CREATE TABLE DelegationAuthority (
+    id                     SERIAL PRIMARY KEY,
+    resource_id            INTEGER NOT NULL REFERENCES Resources(id),
+    permission_set_id      INTEGER NOT NULL REFERENCES PermissionSets(id),
+    grantor_id             INTEGER NOT NULL REFERENCES Users(id),   -- Who granted the delegation
+    grantee_id             INTEGER NOT NULL REFERENCES Users(id),   -- Who receives the delegation authority
+    can_delegate           BOOLEAN NOT NULL DEFAULT FALSE,          -- Whether this delegation can be further delegated
+    parent_delegation_id   INTEGER REFERENCES DelegationAuthority(id), -- Self-reference; NULL for top-level delegations
+    granted_at             TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(resource_id, permission_set_id, grantee_id)
+);
+
+I probably have to think about this some more. I am not sure I care so much about the chain of who granted authorization. If someone in the chain
+leaves, what do you do? (maybe they don't delete the users)
+
+## CLARIFICATION
+
+I think is misunderstood my "permission set" name to be a string containing the actual list.
+
