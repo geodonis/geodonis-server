@@ -21,7 +21,6 @@ In the case of an organization, the organization's user account should be viewed
     **Users Table**:
 
     - id (primary key)
-    - entity_context_id (foreign key to EntityContext. 1:1)
     - username (unique)
     - email (unique)
     - password_hash
@@ -131,12 +130,6 @@ specified level to all content owned by the user B and (2) content level access,
     - updated_at
     - added_by (foreign key to User)
 
-### User as Entity
-
-The user object contains a link to an entity context. Currently it uses only the properties traits.
-
-In the future, it may also add the access trait, which would control access to the users profile. Currently profiles are not shared publicly and edit access is controlled through use level membership role.
-
 ### Application Content
 
 At the application level, content types are defined and, if needed, linked to an entity context object in a one to one mapping to use the different entity traits.
@@ -209,3 +202,79 @@ Below are the groups and roles assigned for the implementation of the access con
     - "public_view": "view" role
     - "public_update": "update" role
 
+## Service Components
+
+### Authorization
+
+The web service will include both web pages and an API, which will be accessed both from the web pages and from mobile devices.
+
+- Web pages: HTTP-only cookies
+- API: Tokens or HTTP-only cookies.
+
+The HTTP-only cookie authorization should include csrf protection.
+
+The actions that will be authorized and the information used to authorize the action:
+
+- General
+    - Accessing an endpoint requiring login
+    - Accessing an endpoint requiring system admin
+- User Management
+    - Create, Update, Delete a user
+        - action (Create, Update, Delete)
+        - user doing the action (user A)
+        - user being acted on, "owner" (user O) (if not create)
+        - if user A != user O: list of roles for acting user associated with the user being deleted
+- User Sharing
+    - Create, Update, Delete a user level membership for user A with a user O.
+        - action (create_user_membership, update_user_membership, delete_user_membership)
+        - the role
+        - user doing the action (user A)
+        - user that owns the group (user O)
+        - if user A != user O: list of membership and roles for user A associated with the user O
+    - Create, Update, Delete a group level membership for user A in a group owned by a user O.
+        - action (create_group_membership, update_group_membership, delete_group_membership)
+        - the group
+        - the permission level
+        - user doing the action (user A)
+        - user that owns the group (user O)
+        - if user A != user O: list of membership and roles for user A associated with the user O
+    - Create, Update, Delete a group for a user O
+        - action (create_group, update_group, delete_group)
+        - group (if not create)
+        - user doing the action (user A)
+        - user that owns the group (user O)
+        - if user A != user O: list of membership and roles for user A associated with the user O
+- Entity Access
+    - View, Update, Create, Delete an entity
+        - action (view_entity, update_entity, create_entity, delete_entity)
+        - entity (if not create)
+        - user doing the action (user A)
+        - user that owns the entity (user O)
+        - if user A != user O: for the viewer user: list of groups that are either owned by the owner user or by NULL along with membership role
+        - if user A != user O: list of roles for viewer user associated with the owner user
+
+### User
+
+These are the user management actions.
+
+Because this is a prototype service, we have a few user management peculiarities:
+
+- There is no public sign form for users. Users must be invited by the system admin.
+- There is no safe email for the service, such as for resetting a password. Any such emails are done **manually** by the system admin.
+
+Actions:
+
+1. Create User: (ADMIN ONLY) A form is filled out to create a new user. This action is done by an system admin only. The account is created with a dummy password
+     and a "password reset" token is created for the user for the user to create a new password. (See "Initiate reset password")
+2. Initiate Reset Password: (ADMIN ONLY) The admin does this on receiving a request to reset a password, through email. A rest password token is created and
+    a reset password link in **MANUALLY** sent to the user by the system admin. The user will use this to set a new password.
+3. Reset_Password: (USER ONLY) This is the action by the user to reset the password. It requires a rest password token that must be send by the system admin.
+4. Edit_User: (USER ONLY) This allows the user to edit the user account, not including the password.
+
+### Sharing
+
+TO BE FILLED IN
+
+## Application Level 
+
+TO BE FILLED IN
