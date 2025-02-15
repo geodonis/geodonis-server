@@ -239,56 +239,77 @@ Authorization Function Arguments:
 Cases:
 
 - User Management
-    - Create, Update, Delete a user: This can be done by the system super user or the user being acted upon.
-        - acting_user: acting user
-        - action: "create_user", "update_user", "delete_user"
-        - target_owner_id: user (if not create)
-        - target_groups: NULL
-        - additional_parameters: NULL
-    - Create password reset token: This can only be done by a system super user.
-        - acting_user: acting user
-        - action: "create_password_reset_token"
-        - target_owner_id: user (if not create)
-        - target_groups: NULL
-        - additional_parameters: NULL
-- User Sharing: This can be done by the super user, the target owner, or a user who is a member of the target owner with role "admin".
+    - Create, Update, Delete a user
+        - Validation parameters
+            - acting_user: acting user
+            - action: "create_user", "update_user", "delete_user"
+            - target_owner_id: user (if not create)
+            - target_groups: NULL
+            - additional_parameters: NULL
+        - Authorized users:
+            - system super user
+            - target owner
+    - Create password reset token
+        - Validation parameters
+            - acting_user: acting user
+            - action: "create_password_reset_token"
+            - target_owner_id: user (if not create)
+            - target_groups: NULL
+            - additional_parameters: NULL
+        - Authorized users:
+            - system super user
+- User Sharing:
     - Create, Update, Delete a user level membership for user R with a user O.
-        - acting_user: acting user
-        - action: "create_user_membership", "update_user_membership", "delete_user_membership"
-        - target_owner_id: user O
-        - target_groups: NULL
-        - additional_parameters:
-            - user_membership_id: (if not create)
-            - member_id: user R ID
-            - role: role
+        - Validation parameters
+            - acting_user: acting user
+            - action: "create_user_membership", "update_user_membership", "delete_user_membership"
+            - target_owner_id: user O
+            - target_groups: NULL
+            - additional_parameters:
+                - user_membership_id: (if not create)
+                - member_id: user R ID
+                - role: role
+        - Authorized users: (same for all sharing actions)
+            - system super user
+            - target owner
+            - a user who is a member of the target owner with role "admin"
     - Create, Update, Delete a group level membership for user R in a group owned by a user O.
-        - acting_user: acting user
-        - action: "create_group_membership", "update_group_membership", "delete_group_membership"
-        - target_owner_id: user O
-        - target_groups: NULL
-        - additional_parameters:
-            - group_id
-            - group_membership_id (if not create)
-            - member_id: user R ID
-            - permission_level: permission_level
+        - Validation parameters
+            - acting_user: acting user
+            - action: "create_group_membership", "update_group_membership", "delete_group_membership"
+            - target_owner_id: user O
+            - target_groups: NULL
+            - additional_parameters:
+                - group_id
+                - group_membership_id (if not create)
+                - member_id: user R ID
+                - permission_level: permission_level
+        - Authorized users: (same for all sharing actions)
     - Create, Update, Delete a group for a user O
-        - acting_user: acting user
-        - action: "create_group", "update_group", "delete_group
-        - target_owner_id: user O
-        - target_groups: NULL
-        - additional_parameters:
-            - group_id (if not create)
-- Entity Access: This can be done by the system super user, the target owner, a user who is a member of the target owner with appropriate role, or a
-    user who is a member of a group associated with the target entity with appropriate permissions. See permissions per role or membership permission level.
+        - Validation parameters
+            - acting_user: acting user
+            - action: "create_group", "update_group", "delete_group
+            - target_owner_id: user O
+            - target_groups: NULL
+            - additional_parameters:
+                - group_id (if not create)
+        - Authorized users: (same for all sharing actions)
+- Entity Access:
     - View, Update, Create, Delete an entity owned by user O
-        - acting_user: acting user
-        - action: "view_entity", "update_entity", "create_entity", "delete_entity"
-        - target_owner_id: user O
-        - target_groups: list of groups associated with the entity
-        - additional_parameters:
-            - entity_id: if not create
-            - entity_type: entity type
-            - X_id: id of the object pointing to the entity (where X is the table name)
+        - Validation parameters
+            - acting_user: acting user
+            - action: "view_entity", "update_entity", "create_entity", "delete_entity"
+            - target_owner_id: user O
+            - target_groups: list of groups associated with the entity
+            - additional_parameters:
+                - entity_id: if not create
+                - entity_type: entity type
+                - X_id: id of the object pointing to the entity (where X is the table name)
+        - Authorized users:
+            - system super user,
+            - target owner
+            - a user who is a member of the target owner with appropriate role
+            - a user who is a member of a group associated with the target entity with appropriate permissions
 
 ### User
 
