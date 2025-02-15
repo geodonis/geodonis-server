@@ -24,7 +24,7 @@ In the case of an organization, the organization's user account should be viewed
     - username (unique)
     - email (unique)
     - password_hash
-    - status (e.g. active/suspended/deleted)
+    - status (options: [active, suspended, deleted])
     - is_super_user (boolean, default false - true intended for single main system user)
     - created_at
     - updated_at
@@ -60,6 +60,8 @@ We do not enforce which individual traits a given content type may have at the d
 
     Entities can be assigned to properties using the entity properties trait.
 
+    NOTE: At the system level we will not constrain allowed property keys or values. Client applications may constrain that.
+
     **EntityProperties Table**:
 
    - id (primary key)
@@ -67,9 +69,9 @@ We do not enforce which individual traits a given content type may have at the d
    - property_key (e.g., "avatar_url", "bio", "location", "org_description")
    - property_value
 
-   At the system level we will not constrain allowed property keys or values. Client applications may constrain that.
-
 4. Comments Trait
+
+    **TO BE IMPLEMENTED LATER**
 
     Entities can be assigned comments using the entity comments trait.
 
@@ -92,8 +94,8 @@ specified level to all content owned by the user B and (2) content level access,
    - id (primary key)
    - owner_id (foreign key to User representing the content owner)
    - member_id (foreign key to User representing the member)
-   - role (e.g. member/admin/superuser)
-   - status (e.g. active/invited/suspended)
+   - role (options: [view, update, full_edit, admin])
+   - status (options: [active, invited, suspended])
    - created_at
    - updated_at
    - invited_by (foreign key to User)
@@ -125,7 +127,7 @@ specified level to all content owned by the user B and (2) content level access,
     - id (primary key)
     - group_id (foreign key to EntityAccessGroup)
     - user_id (foreign key to User; NULL OK)
-    - permission_level (e.g. view/edit/manage)
+    - permission_level (options: [view, update])
     - created_at
     - updated_at
     - added_by (foreign key to User)
@@ -215,43 +217,78 @@ The HTTP-only cookie authorization should include csrf protection.
 
 The actions that will be authorized and the information used to authorize the action:
 
-- General
-    - Accessing an endpoint requiring login
-    - Accessing an endpoint requiring system admin
+**Endpoint Access**
+
+Cases:
+
+- Accessing an endpoint requiring login
+- Accessing an endpoint requiring system admin
+
+FUTURE: We may wont to combine this with the function below, if particular when we add special membership groups for the super user.
+
+**Internal Action Access**
+
+Authorization Function Arguments:
+
+- acting_user: user object, including user and group memberships
+- action: string action name identify the action with the type of object acted on.
+- target_owner_id - user ID of target owner, if applicable (user management, sharing, entities)
+- target groups - groups for a target entity, if applicable (entities only)
+- additional_parameters: map {string: any}. Additional parameters not needed for authorization but for logging
+
+Cases:
+
 - User Management
-    - Create, Update, Delete a user
-        - action (Create, Update, Delete)
-        - user doing the action (user A)
-        - user being acted on, "owner" (user O) (if not create)
-        - if user A != user O: list of roles for acting user associated with the user being deleted
-- User Sharing
-    - Create, Update, Delete a user level membership for user A with a user O.
-        - action (create_user_membership, update_user_membership, delete_user_membership)
-        - the role
-        - user doing the action (user A)
-        - user that owns the group (user O)
-        - if user A != user O: list of membership and roles for user A associated with the user O
-    - Create, Update, Delete a group level membership for user A in a group owned by a user O.
-        - action (create_group_membership, update_group_membership, delete_group_membership)
-        - the group
-        - the permission level
-        - user doing the action (user A)
-        - user that owns the group (user O)
-        - if user A != user O: list of membership and roles for user A associated with the user O
+    - Create, Update, Delete a user: This can be done by the system super user or the user being acted upon.
+        - acting_user: acting user
+        - action: "create_user", "update_user", "delete_user"
+        - target_owner_id: user (if not create)
+        - target_groups: NULL
+        - additional_parameters: NULL
+    - Create password reset token: This can only be done by a system super user.
+        - acting_user: acting user
+        - action: "create_password_reset_token"
+        - target_owner_id: user (if not create)
+        - target_groups: NULL
+        - additional_parameters: NULL
+- User Sharing: This can be done by the super user, the target owner, or a user who is a member of the target owner with role "admin".
+    - Create, Update, Delete a user level membership for user R with a user O.
+        - acting_user: acting user
+        - action: "create_user_membership", "update_user_membership", "delete_user_membership"
+        - target_owner_id: user O
+        - target_groups: NULL
+        - additional_parameters:
+            - user_membership_id: (if not create)
+            - member_id: user R ID
+            - role: role
+    - Create, Update, Delete a group level membership for user R in a group owned by a user O.
+        - acting_user: acting user
+        - action: "create_group_membership", "update_group_membership", "delete_group_membership"
+        - target_owner_id: user O
+        - target_groups: NULL
+        - additional_parameters:
+            - group_id
+            - group_membership_id (if not create)
+            - member_id: user R ID
+            - permission_level: permission_level
     - Create, Update, Delete a group for a user O
-        - action (create_group, update_group, delete_group)
-        - group (if not create)
-        - user doing the action (user A)
-        - user that owns the group (user O)
-        - if user A != user O: list of membership and roles for user A associated with the user O
-- Entity Access
-    - View, Update, Create, Delete an entity
-        - action (view_entity, update_entity, create_entity, delete_entity)
-        - entity (if not create)
-        - user doing the action (user A)
-        - user that owns the entity (user O)
-        - if user A != user O: for the viewer user: list of groups that are either owned by the owner user or by NULL along with membership role
-        - if user A != user O: list of roles for viewer user associated with the owner user
+        - acting_user: acting user
+        - action: "create_group", "update_group", "delete_group
+        - target_owner_id: user O
+        - target_groups: NULL
+        - additional_parameters:
+            - group_id (if not create)
+- Entity Access: This can be done by the system super user, the target owner, a user who is a member of the target owner with appropriate role, or a
+    user who is a member of a group associated with the target entity with appropriate permissions. See permissions per role or membership permission level.
+    - View, Update, Create, Delete an entity owned by user O
+        - acting_user: acting user
+        - action: "view_entity", "update_entity", "create_entity", "delete_entity"
+        - target_owner_id: user O
+        - target_groups: list of groups associated with the entity
+        - additional_parameters:
+            - entity_id: if not create
+            - entity_type: entity type
+            - X_id: id of the object pointing to the entity (where X is the table name)
 
 ### User
 
