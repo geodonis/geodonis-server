@@ -1,5 +1,36 @@
 # Infolog
 
+## 2/17/25
+
+progress:
+
+- created the flask app
+- added basic user management with a version of our user model.
+
+next:
+
+- fix up the user management
+    - error checking
+    - logging
+    - generally, decide on coding standards and other service rules (and get text to communicate these rules)
+- decide on web rules (and get some text to communicate these rules)
+- more tables? (sharing tables? entity tables?): As soon as I add public sharing, I will add the public groups and then the ability to
+    put an entity in a public group. It won't be a while until I use user org membership. MAYBE I LEAVE IT ALL OUT FOR NOW?
+- add proper action authentication (using whatever is currnently implemented)
+- start adding some of the application?
+    - upload projects in API (support from web too, for later)
+    - list projects on web
+    - view projects on web
+- add the API along with the API token access.
+
+NOTES:
+
+- currently do not let people edit their user name (no system requirement for this. Think if I want to add this later.)
+- I think my user functions need better error handling (see chat notes on that)
+- I need logging
+- POSTGIS ISSUE WITH ALEMBIC: I had to add some code to get it to ignore the postgis tables. This means it will only autogen modifications
+  tables in the metadata. If I delete a table, I think it might not get it. DOCUMENT THIS!
+
 ## 2/14/25
 
 progress:

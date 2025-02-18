@@ -87,12 +87,15 @@ specified level to all content owned by the user B and (2) content level access,
 
 1. User Level Access
 
-    A user can give authority to other users by granting them membership. The associated role determines their level of access.
+    A user can give authority to other users by granting them membership. For clarity we will sometimes call this membership in the user's
+    organization (whether the user is an individual or an organization).
 
-    **UserMemberships Table**:
+    The associated role determines their level of access.
+
+    **UserOrgMemberships Table**:
 
    - id (primary key)
-   - owner_id (foreign key to User representing the content owner)
+   - owner_id (foreign key to user representing the content owner)
    - member_id (foreign key to User representing the member)
    - role (options: [view, update, full_edit, admin])
    - status (options: [active, invited, suspended])
@@ -127,7 +130,7 @@ specified level to all content owned by the user B and (2) content level access,
     - id (primary key)
     - group_id (foreign key to EntityAccessGroup)
     - user_id (foreign key to User; NULL OK)
-    - permission_level (options: [view, update])
+    - role (options: [view, update])
     - created_at
     - updated_at
     - added_by (foreign key to User)
@@ -186,12 +189,23 @@ In Geodonis, the application content is map data.
     - version (primary key)
     - ... (data for stored file content)
 
-## Access Implementation
+## Authorization
 
-Below are the groups and roles assigned for the implementation of the access control:
+### Authentication Mechanism
+
+The web service will include both web pages and an API, which will be accessed both from the web pages and from mobile devices.
+
+- Web pages: HTTP-only cookies
+- API: Tokens _or_ HTTP-only cookies. (except for endpoints determined exclusively for web access, if any)
+
+The HTTP-only cookie authorization should include csrf protection.
+
+### Organization and Group Implementation
+
+Below are the allowed user org membership roles and group permission levels for the implementation of the access control:
 
 1. The super user: There is one user created that is the super user for the system. This will control groups that have system level access. This is the only user that has the "is_super_user"  flag set to true.
-2. User Member Roles: These are the allowed roles for user level membership
+2. User Org Member Roles: These are the allowed roles for user level membership
     - view: view
     - update: view, update
     - full_edit: view, create, update, delete
@@ -199,46 +213,43 @@ Below are the groups and roles assigned for the implementation of the access con
 3. Entity Group Permission Levels:
     - view: view
     - update: view, update
-4. Superuser Membership Roles: TO BE ADDED LATER. Only assignable by the super user or someone granted this superuser privilege.
+4. Superuser Membership Roles: TO BE ADDED LATER. Only assignable by the super user or someone granted this superuser privilege. These will be
+    used to identify system employees, if and when more employee roles are needed.
 5. Public groups: These are the public groups and the role in which all users are implicitly assigned.
     - "public_view": "view" role
     - "public_update": "update" role
 
-## Service Components
+### Action Authorization Rules
 
-### Authorization
+We will centralize authorization determination with a single authorization function, having the following parameters:
 
-The web service will include both web pages and an API, which will be accessed both from the web pages and from mobile devices.
+- **Authorization Function Parameters**
+    - acting_user: user object, including user org and group memberships. use NULL if no user is logged in.
+    - action: string action name identify the action with the type of object acted on.
+    - target_owner_id - user ID of target owner, if applicable (user management, sharing, entities)
+    - target groups - groups for a target entity, if applicable (entities only)
+    - additional_parameters: map {string: any}. Additional parameters, possibly used only for logging purposes
 
-- Web pages: HTTP-only cookies
-- API: Tokens or HTTP-only cookies.
+Here are the actions available in the service, along with the parameters needed to call the authorization function.
 
-The HTTP-only cookie authorization should include csrf protection.
-
-The actions that will be authorized and the information used to authorize the action:
-
-**Endpoint Access**
-
-Cases:
-
-- Accessing an endpoint requiring login
-- Accessing an endpoint requiring system admin
-
-FUTURE: We may wont to combine this with the function below, if particular when we add special membership groups for the super user.
-
-**Internal Action Access**
-
-Authorization Function Arguments:
-
-- acting_user: user object, including user and group memberships
-- action: string action name identify the action with the type of object acted on.
-- target_owner_id - user ID of target owner, if applicable (user management, sharing, entities)
-- target groups - groups for a target entity, if applicable (entities only)
-- additional_parameters: map {string: any}. Additional parameters not needed for authorization but for logging
-
-Cases:
-
-- User Management
+- **Endpoint Access:**
+    - Access an endpoint requiring login
+        - Validation parameters
+            - acting_user: acting user
+            - action: "view_user_endpoint"
+            - target_owner_id: NULL
+            - target_groups: NULL
+        - Authorized users:
+            - any logged in user
+    - Access an admin endpoint
+        - Validation parameters
+            - acting_user: acting user
+            - action: "update_admin_endpoint"
+            - target_owner_id: NULL
+            - target_groups: NULL
+        - Authorized users:
+            - system super user
+- **User Management**
     - Create, Update, Delete a user
         - Validation parameters
             - acting_user: acting user
@@ -258,21 +269,21 @@ Cases:
             - additional_parameters: NULL
         - Authorized users:
             - system super user
-- User Sharing:
-    - Create, Update, Delete a user level membership for user R with a user O.
+- **User Sharing:**
+    - Create, Update, Delete a user org membership for user R with the organization of user O.
         - Validation parameters
             - acting_user: acting user
-            - action: "create_user_membership", "update_user_membership", "delete_user_membership"
+            - action: "create_org_membership", "update_org_membership", "delete_org_membership"
             - target_owner_id: user O
             - target_groups: NULL
             - additional_parameters:
-                - user_membership_id: (if not create)
+                - org_membership_id: (if not create)
                 - member_id: user R ID
                 - role: role
         - Authorized users: (same for all sharing actions)
             - system super user
             - target owner
-            - a user who is a member of the target owner with role "admin"
+            - a user who is a member of the target owner organization with role "admin"
     - Create, Update, Delete a group level membership for user R in a group owned by a user O.
         - Validation parameters
             - acting_user: acting user
@@ -283,7 +294,7 @@ Cases:
                 - group_id
                 - group_membership_id (if not create)
                 - member_id: user R ID
-                - permission_level: permission_level
+                - role: role
         - Authorized users: (same for all sharing actions)
     - Create, Update, Delete a group for a user O
         - Validation parameters
@@ -294,7 +305,7 @@ Cases:
             - additional_parameters:
                 - group_id (if not create)
         - Authorized users: (same for all sharing actions)
-- Entity Access:
+- **Entity Access:**
     - View, Update, Create, Delete an entity owned by user O
         - Validation parameters
             - acting_user: acting user
@@ -308,8 +319,9 @@ Cases:
         - Authorized users:
             - system super user,
             - target owner
-            - a user who is a member of the target owner with appropriate role
+            - a user who is a member of the target owner's organization with appropriate role
             - a user who is a member of a group associated with the target entity with appropriate permissions
+
 
 ### User
 

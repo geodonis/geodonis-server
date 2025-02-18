@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgis/postgis:16-3.5
+    volumes:
+      - postgres_postgis_data:/var/lib/postgresql/data
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_DB=${DB_NAME_LOCAL}
+      - POSTGRES_USER=${DB_USER_LOCAL}
+      - POSTGRES_PASSWORD=${DB_PASSWORD_LOCAL}
+    ports:
+      - "${DB_PORT_LOCAL}:5432"
+
+volumes:
+  postgres_postgis_data:
