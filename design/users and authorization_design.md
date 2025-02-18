@@ -1,4 +1,4 @@
-# Application Outline 2/14/25
+# Users and Authorization Design 2/14/25
 
 Here is the data model and access control outline for an application.
 
@@ -189,6 +189,16 @@ In Geodonis, the application content is map data.
     - version (primary key)
     - ... (data for stored file content)
 
+### Additional System Tables
+
+There are some additional tables:
+
+1. Password Reset Token Table: The current implementation involves a password reset token that is created at the server (by the admin currently)
+    and sent to the user to enable them to reset their password.
+
+2. Session Table: The http only cookie access control mechanism used by web pages has session control managed on the server. A session table
+    is created for this.
+
 ## Authorization
 
 ### Authentication Mechanism
@@ -321,30 +331,3 @@ Here are the actions available in the service, along with the parameters needed 
             - target owner
             - a user who is a member of the target owner's organization with appropriate role
             - a user who is a member of a group associated with the target entity with appropriate permissions
-
-
-### User
-
-These are the user management actions.
-
-Because this is a prototype service, we have a few user management peculiarities:
-
-- There is no public sign form for users. Users must be invited by the system admin.
-- There is no safe email for the service, such as for resetting a password. Any such emails are done **manually** by the system admin.
-
-Actions:
-
-1. Create User: (ADMIN ONLY) A form is filled out to create a new user. This action is done by an system admin only. The account is created with a dummy password
-     and a "password reset" token is created for the user for the user to create a new password. (See "Initiate reset password")
-2. Initiate Reset Password: (ADMIN ONLY) The admin does this on receiving a request to reset a password, through email. A rest password token is created and
-    a reset password link in **MANUALLY** sent to the user by the system admin. The user will use this to set a new password.
-3. Reset_Password: (USER ONLY) This is the action by the user to reset the password. It requires a rest password token that must be send by the system admin.
-4. Edit_User: (USER ONLY) This allows the user to edit the user account, not including the password.
-
-### Sharing
-
-TO BE FILLED IN
-
-## Application Level 
-
-TO BE FILLED IN

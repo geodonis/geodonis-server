@@ -1,5 +1,14 @@
 # Infolog
 
+## 2/18/25
+
+progress:
+
+- clean up design notes a little
+- fixed a bug in initiate reset password (line had trailing slash that didn't work)
+- adding logging initialization for app
+- added some error checking and logging for user routes
+
 ## 2/17/25
 
 progress:

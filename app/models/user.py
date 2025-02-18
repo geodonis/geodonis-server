@@ -14,7 +14,7 @@ class User(db.Model, UserMixin):
     status = db.Column(db.String(20), nullable=False, default='active')  # active, suspended, deleted
     is_super_user = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
-    updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=timezone.utc)
+    updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -30,11 +30,11 @@ class User(db.Model, UserMixin):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-
+# This function can be used to create a super user. It should not be included in the system for general release
 def create_admin_user():
     email = 'admin@geodonis.com'
     username='geodonis_admin'
-    password = None
+    password = None # set this when needed
     if not email or not username or not password:
         raise ValueError("Action can not be done!")
     new_user = User(

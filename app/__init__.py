@@ -6,6 +6,7 @@ from flask_session import Session
 from flask_migrate import Migrate
 from config import config
 from datetime import timedelta
+import logging
 
 import os
 
@@ -21,8 +22,71 @@ migrate = Migrate()
 
 def create_app(config_name):
     app = Flask(__name__)
+    app.url_map.strict_slashes = False
     app.config.from_object(config[config_name])
 
+    setup_logging(app)
+    setup_storage(app)
+
+    # Configure session db
+    app.config['SESSION_SQLALCHEMY'] = db
+
+    # configure jwt
+    app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'default-jwt-secret')
+
+    db.init_app(app)
+    login_manager.init_app(app)
+    csrf.init_app(app)
+    migrate.init_app(app, db)
+
+    sess.init_app(app)
+
+    login_manager.login_view = 'auth_bp.login'
+    login_manager.login_message_category = 'info'
+
+    # blueprints
+
+    from app.blueprints.main.routes import main_bp
+    app.register_blueprint(main_bp)
+
+    from app.blueprints.auth.routes import auth_bp
+    app.register_blueprint(auth_bp)
+
+    from app.blueprints.user.routes import user_bp
+    app.register_blueprint(user_bp)
+
+    from app import models
+
+    return app
+
+@login_manager.unauthorized_handler
+def unauthorized():
+    if request.path.startswith('/api/') or request.path.startswith('/file/'):
+        return jsonify({"error": "Unauthorized"}), 403
+    # For non-API routes, do the default redirect
+    else:
+        return redirect(url_for(login_manager.login_view, next=request.url))
+    
+def setup_logging(app):
+    """Configure basic logging to stderr."""
+    formatter = logging.Formatter(
+        '[%(asctime)s] %(levelname)s in %(module)s: %(message)s'
+    )
+    
+    # Clear any existing handlers
+    app.logger.handlers.clear()
+    
+    # Configure stderr handler
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    console_handler.setLevel(app.config.get('LOG_LEVEL', logging.INFO))
+    app.logger.addHandler(console_handler)
+    app.logger.setLevel(app.config.get('LOG_LEVEL', logging.INFO))
+    
+    # Log startup message
+    app.logger.info("Logging initialized")
+
+def setup_storage(app):
     # set up DB and file storage
     if app.config["STORAGE_SOURCE"] == "production":
         
@@ -55,42 +119,3 @@ def create_app(config_name):
     else:
         raise ValueError("Invalid STORAGE_SOURCE value")
     
-    # Configure session db
-    app.config['SESSION_SQLALCHEMY'] = db
-
-    # configure jwt
-    app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'default-jwt-secret')
-
-    db.init_app(app)
-    login_manager.init_app(app)
-    csrf.init_app(app)
-    migrate.init_app(app, db)
-
-    sess.init_app(app)
-
-    login_manager.login_view = 'auth_bp.login'
-    login_manager.login_message_category = 'info'
-
-    # blueprints
-
-    from app.blueprints.main.routes import main_bp
-    app.register_blueprint(main_bp)
-
-    from app.blueprints.auth.routes import auth_bp
-    app.register_blueprint(auth_bp)
-
-    from app.blueprints.user.routes import user_bp
-    app.register_blueprint(user_bp)
-
-
-    from app import models
-
-    return app
-
-@login_manager.unauthorized_handler
-def unauthorized():
-    if request.path.startswith('/api/') or request.path.startswith('/file/'):
-        return jsonify({"error": "Unauthorized"}), 403
-    # For non-API routes, do the default redirect
-    else:
-        return redirect(url_for(login_manager.login_view, next=request.url))

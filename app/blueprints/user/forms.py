@@ -1,7 +1,7 @@
 # app/user/forms.py
 
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, BooleanField, SubmitField, SelectMultipleField
+from wtforms import StringField, PasswordField, BooleanField, SubmitField
 from wtforms.validators import DataRequired, Email, ValidationError, EqualTo, Length, Optional
 from app.models.user import User
 from flask_login import current_user
@@ -25,13 +25,18 @@ class LoginForm(FlaskForm):
 
 class CreateUserForm(FlaskForm):
     email = StringField('Email', validators=[DataRequired(), Email()])
-    user_name = StringField('Username', validators=[DataRequired()])
+    username = StringField('Username', validators=[DataRequired()])
     submit = SubmitField('Create User')
 
     def validate_email(self, email):
         user = User.query.filter_by(email=email.data).first()
         if user is not None:
-            raise ValidationError('Please use a different email address.')
+            raise ValidationError('There is already an account with that email.')
+        
+    def validate_username(self, username):
+        user = User.query.filter_by(username=username.data).first()
+        if user is not None:
+            raise ValidationError('There is already an account with that username.')
 
 class InitiateResetPasswordForm(FlaskForm):
     email = StringField('Email', validators=[DataRequired(), Email()])
