@@ -49,7 +49,23 @@ def create_app(config_name):
     from app.blueprints.user.routes import user_bp
     app.register_blueprint(user_bp)
 
+    from app.blueprints.uploads.routes import uploads_bp
+    app.register_blueprint(uploads_bp)
+
     from app import models
+
+    #========= ENABLE REMOTE FILE DIRECTORY FOR MAP APP FILES =============
+
+    if app.config.get('ENABLE_JS_APP_ROUTE'):
+        rel_map_app_path = os.environ.get('REL_MAP_APP_PATH',"/static/mapapp") # default to a local folder if not set
+        full_map_app_path = os.path.abspath(rel_map_app_path)
+
+        from flask import send_from_directory
+
+        @app.route('/static/mapapp/<path:filename>')
+        def js_app_files(filename):
+            return send_from_directory(full_map_app_path, filename)
+    #========= END ENABLE REMOTE FILE DIRECTORY FOR MAP APP FILES =============
 
     return app
 

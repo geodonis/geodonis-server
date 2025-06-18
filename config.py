@@ -25,6 +25,7 @@ class DevelopmentConfig(Config):
     DEBUG = False # debug=True interferes with external debugger
     SESSION_COOKIE_SECURE = False # for http access
     STORAGE_SOURCE = 'development'
+    ENABLE_JS_APP_ROUTE = True # enable this to serve static files for the map app from the JS_APP_PATH
 
     # SAVE_EXERCISE_AUDIO = True #enable this to save audio files for exercises
 
@@ -32,10 +33,12 @@ class DevProdDbConfig(Config):
     DEBUG = False # debug=True interferes with external debugger
     SESSION_COOKIE_SECURE = False # for http access
     STORAGE_SOURCE = 'production'
+    ENABLE_JS_APP_ROUTE = True # enable this to serve static files for the map app from the JS_APP_PATH
 
 class ProductionConfig(Config):
     DEBUG = False
     STORAGE_SOURCE = 'production'
+    ENABLE_JS_APP_ROUTE = False # disable external access to static files for production!
 
 config = {
     'development': DevelopmentConfig,

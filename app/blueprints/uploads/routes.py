@@ -1,0 +1,70 @@
+from flask import Blueprint, jsonify, request, render_template, current_app
+from flask_login import login_required
+from app.common.utils.standard_exceptions import ClientError, endpoint_exception_handler
+from werkzeug.utils import secure_filename
+from marshmallow import Schema, fields, ValidationError
+
+uploads_bp = Blueprint('uploads_bp', __name__)
+
+UPLOADS_BASE_FOLDER = 'uploads'
+ALLOWED_FILE_TYPES = ['venue_gps_trace']
+
+class UploadFileSchema(Schema):
+    file_type = fields.Str(required=True, validate=lambda x: x in ALLOWED_FILE_TYPES)
+    file_name = fields.Str(required=True)
+    update = fields.Boolean(required=True)
+
+upload_file_schema = UploadFileSchema()
+
+@uploads_bp.route('/uploads/upload-test', methods=['GET'])
+@login_required
+def edit_grading_test_suite():
+    return render_template('uploads/upload_test.html', has_api_call=True)
+
+@uploads_bp.route('/api/uploads/upload-file', methods=['POST'])
+@login_required
+def upload_file():
+    try:
+        # Validate form data
+        try:
+            data = upload_file_schema.load(request.form)
+        except ValidationError as e:
+            raise ClientError(f"Invalid input: {str(e)}") from e
+
+        file_type = data['file_type']
+        file_name = secure_filename(data['file_name'])
+        update = data['update']
+
+        if update:
+            raise ClientError("Updates not currently enabled!")
+
+        # Check if file was included in the request
+        if 'file' not in request.files:
+            raise ClientError("No file part in the request")
+        
+        file = request.files['file']
+        if file.filename == '':
+            raise ClientError("No file selected for uploading")
+
+        # Check file existence and update flag
+        file_storage = current_app.config['FILE_STORAGE']
+        folder_key = f"{UPLOADS_BASE_FOLDER}/{file_type}/"
+        file_exists = file_storage.file_exists(folder_key, file_name)
+
+        if file_exists and not update:
+            raise ClientError("File already exists and update flag is false")
+        if not file_exists and update:
+            raise ClientError("File does not exist and update flag is true")
+
+        # Save the file
+        file_storage.save_file_object(folder_key, file_name, file)
+
+        return jsonify({
+            'success': True,
+            'message': 'File uploaded successfully',
+            'file_name': file_name,
+            'file_type': file_type
+        }), 200
+
+    except Exception as e:
+        return endpoint_exception_handler(e)
