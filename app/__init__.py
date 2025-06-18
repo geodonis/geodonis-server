@@ -5,14 +5,11 @@ from flask_wtf.csrf import CSRFProtect
 from flask_session import Session
 from flask_migrate import Migrate
 from config import config
-from datetime import timedelta
 import logging
 
 import os
 
-#from app.service_constants import OS_FILES_RELATIVE_BASE_PATH, NETWORK_FILES_RELATIVE_BASE_PATH
-#from app.common.services.file_storage.local_file_storage import LocalFileStorage
-#from app.common.services.file_storage.s3_file_storage import S3FileStorage
+from app.service_constants import OS_FILES_RELATIVE_BASE_PATH, NETWORK_FILES_RELATIVE_BASE_PATH
 
 db = SQLAlchemy()
 login_manager = LoginManager()
@@ -30,9 +27,6 @@ def create_app(config_name):
 
     # Configure session db
     app.config['SESSION_SQLALCHEMY'] = db
-
-    # configure jwt
-    app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'default-jwt-secret')
 
     db.init_app(app)
     login_manager.init_app(app)
@@ -96,13 +90,14 @@ def setup_storage(app):
             f"postgresql://{os.environ.get('DB_USER')}:{os.environ.get('DB_PASSWORD')}@{os.environ.get('DB_HOST')}:{os.environ.get('DB_PORT')}/{os.environ.get('DB_NAME')}"
         app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-        #s3_storage = S3FileStorage(
-        #    bucket_name=os.environ.get('AWS_BT_FILES_BUCKET_NAME'),
-        #    read_access_key=os.environ.get('AWS_BT_FILES_READ_ONLY_ACCESS_KEY'),
-        #    read_secret_key=os.environ.get('AWS_BT_FILES_READ_ONLY_SECRET_KEY'),
-        #    write_access_key=os.environ.get('AWS_BT_FILES_READ_WRITE_ACCESS_KEY'),
-        #    write_secret_key=os.environ.get('AWS_BT_FILES_READ_WRITE_SECRET_KEY')
-        #)
+        from app.common.services.file_storage.s3_file_storage import S3FileStorage
+        s3_storage = S3FileStorage(
+            bucket_name=os.environ.get('AWS_BT_FILES_BUCKET_NAME'),
+            read_access_key=os.environ.get('AWS_BT_FILES_READ_ONLY_ACCESS_KEY'),
+            read_secret_key=os.environ.get('AWS_BT_FILES_READ_ONLY_SECRET_KEY'),
+            write_access_key=os.environ.get('AWS_BT_FILES_READ_WRITE_ACCESS_KEY'),
+            write_secret_key=os.environ.get('AWS_BT_FILES_READ_WRITE_SECRET_KEY')
+        )
 
         #app.config['FILE_STORAGE'] = s3_storage
 
@@ -112,9 +107,10 @@ def setup_storage(app):
         app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
         # Set up file storage
-        #os_files_base_path = os.path.join(app.root_path, OS_FILES_RELATIVE_BASE_PATH)
-        #url_files_base_path = os.path.join(NETWORK_FILES_RELATIVE_BASE_PATH)
-        #app.config['FILE_STORAGE'] = LocalFileStorage(os_files_base_path, url_files_base_path)
+        from app.common.services.file_storage.local_file_storage import LocalFileStorage
+        os_files_base_path = os.path.join(app.root_path, OS_FILES_RELATIVE_BASE_PATH)
+        url_files_base_path = os.path.join(NETWORK_FILES_RELATIVE_BASE_PATH)
+        app.config['FILE_STORAGE'] = LocalFileStorage(os_files_base_path, url_files_base_path)
 
     else:
         raise ValueError("Invalid STORAGE_SOURCE value")
