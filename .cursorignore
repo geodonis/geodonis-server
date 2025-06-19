@@ -1,0 +1,6 @@
+.env
+notes/
+local_info/
+
+__pycache__/
+.vscode/
