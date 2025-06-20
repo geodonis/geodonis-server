@@ -1,5 +1,22 @@
 # Infolog
 
+progress:
+
+- worked on jwt for the web site
+
+notes:
+
+- the email is case sensitive for login (probably we have other similar errors) Or is this good/ok?
+- I need to test/debug thoroughly
+- I think the code is really ugly because the assistant followed different conventions and wrote code lacking some knwoledge. Review and clean it up.
+- I still have the session table. I might want to make a manual migration to remove it.
+    - It doesn't look like it is  in the existing migrations. Investigate and fix (actual db, migrations, etc) if anything is wrong.
+- I should uninstall some modules from the venv. (flask session, flask login)
+    - update others?
+- I can use the external project for the app, with jwt login where needed (I can use static pages - no template needed)
+- I have a problem where I get a json error rathe than an HTML error. I think it is when I have a token loaded that is invalid, or something like that. I am not sure if that is it but the logic that decides if an error is from a browser or api is not good.
+- Because I use "url_prefix" for the routes, I think the api endpoints are not correct.
+
 ## 6/18/25
 
 Repurpose of this project from a geodata sharing project to the map application.

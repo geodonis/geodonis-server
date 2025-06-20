@@ -1,7 +1,9 @@
 # app/user/routes.py
 
-from flask import Blueprint, render_template, redirect, url_for, flash, request
-from flask_login import login_required, current_user
+from flask import Blueprint, render_template, redirect, url_for, flash, request, g
+from flask_jwt_extended import (
+    jwt_required
+)
 from app import db
 from app.models.user import User
 from app.models.password_reset_token import PasswordResetToken
@@ -18,7 +20,7 @@ logger = logging.getLogger(__name__)
 user_bp = Blueprint('user_bp', __name__)
 
 @user_bp.route('/create_user', methods=['GET', 'POST'])
-@login_required
+@jwt_required()
 @admin_required
 def create_user():
     form = CreateUserForm()
@@ -58,7 +60,7 @@ def create_user():
                 # Note: User is already created, so we don't rollback
                 flash('User created but there was an error generating the password reset link.', 'warning')
                 return render_template('user/create_user.html', 
-                                    title='Create User', 
+                                    title='Create User',
                                     form=form), 500
 
         except Exception as e:
@@ -72,7 +74,7 @@ def create_user():
     return render_template('user/create_user.html', title='Create User', form=form)
 
 @user_bp.route('/initiate_reset_password', methods=['GET', 'POST'])
-@login_required
+@jwt_required()
 @admin_required
 def initiate_reset_password():
     form = InitiateResetPasswordForm()
@@ -95,7 +97,7 @@ def initiate_reset_password():
                     logger.error(f"Error generating password reset token: {str(e)}")
                     flash('An error occurred while generating the password reset link.', 'danger')
                     return render_template('user/initiate_reset_password.html', 
-                                        title='Initiate Password Reset', 
+                                        title='Initiate Password Reset',
                                         form=form), 500
             else:
                 logger.warning(f"Password reset attempted for non-existent email: {form.email.data}")
@@ -119,13 +121,13 @@ def reset_password(token):
         if not reset_token or reset_token.expires_at < datetime.now(timezone.utc):
             logger.warning(f"Invalid or expired password reset attempt with token: {token}")
             flash('The password reset link is invalid or has expired.', 'danger')
-            return redirect(url_for('auth_bp.login'))
+            return redirect(url_for('main_bp.index'))
 
         user = User.query.get(reset_token.user_id)
         if not user:
             logger.error(f"User not found for valid reset token. Token ID: {reset_token.id}, User ID: {reset_token.user_id}")
             flash('User not found.', 'danger')
-            return redirect(url_for('auth_bp.login'))
+            return redirect(url_for('main_bp.index'))
 
         form = ResetPasswordForm()
         if form.validate_on_submit():
@@ -161,20 +163,20 @@ def reset_password(token):
         raise InternalServerError("An unexpected error occurred")
 
 @user_bp.route('/edit_account', methods=['GET', 'POST'])
-@login_required
+@jwt_required()
 def edit_account():
     form = EditAccountForm()
     if form.validate_on_submit():
         try:
-            if form.email.data and form.email.data != current_user.email:
-                current_user.email = form.email.data
+            if form.email.data and form.email.data != g.current_user.email:
+                g.current_user.email = form.email.data
             
             if form.password.data:
-                current_user.set_password(form.password.data)
+                g.current_user.set_password(form.password.data)
             
             try:
                 db.session.commit()
-                logger.info(f"Successfully updated account for user ID: {current_user.id}")
+                logger.info(f"Successfully updated account for user ID: {g.current_user.id}")
                 flash('Your account has been updated.', 'success')
                 return redirect(url_for('user_bp.edit_account'))
             
@@ -195,6 +197,6 @@ def edit_account():
         logger.warning(f"Account edit form validation failed with errors: {form.errors}")
 
     elif request.method == 'GET':
-        form.email.data = current_user.email
+        form.email.data = g.current_user.email
         
     return render_template('user/edit_account.html', title='Edit Account', form=form)

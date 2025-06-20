@@ -8,7 +8,7 @@
                 <h2 class="text-center">Create User</h2>
             </div>
             <div class="card-body">
-                <form method="post">
+                <form class="protected-form" method="post">
                     {{ form.hidden_tag() }}
                     <div class="mb-3">
                         {{ form.email.label(class="form-label") }}
@@ -32,4 +32,9 @@
         </div>
     </div>
 </div>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/customFetch.js') }}"></script>
+<script src="{{ url_for('static', filename='js/formHandler.js') }}"></script>
 {% endblock %}

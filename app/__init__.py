@@ -1,21 +1,16 @@
-from flask import Flask, jsonify, request, redirect, url_for
+from flask import Flask, jsonify, request, redirect, url_for, g
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager
-from flask_wtf.csrf import CSRFProtect
-from flask_session import Session
+from flask_jwt_extended import JWTManager, get_jwt_identity, get_jwt, verify_jwt_in_request, create_access_token, set_access_cookies
 from flask_migrate import Migrate
 from config import config
 import logging
-
 import os
 
 from app.service_constants import OS_FILES_RELATIVE_BASE_PATH, NETWORK_FILES_RELATIVE_BASE_PATH
 
 db = SQLAlchemy()
-login_manager = LoginManager()
-csrf = CSRFProtect()
-sess = Session()
 migrate = Migrate()
+jwt = JWTManager()
 
 def create_app(config_name):
     app = Flask(__name__)
@@ -25,39 +20,81 @@ def create_app(config_name):
     setup_logging(app)
     setup_storage(app)
 
-    # Configure session db
-    app.config['SESSION_SQLALCHEMY'] = db
-
     db.init_app(app)
-    login_manager.init_app(app)
-    csrf.init_app(app)
     migrate.init_app(app, db)
+    jwt.init_app(app)
 
-    sess.init_app(app)
+    # This function is called whenever a protected endpoint is accessed,
+    # and will load the user object into the g context variable.
+    @app.before_request
+    def load_user_from_jwt():
+        try:
+            # This will raise an exception if a valid JWT is not present
+            verify_jwt_in_request(optional=True) 
+            user_identity = get_jwt_identity()
+            if user_identity:
+                # Store user object in Flask's g for the duration of the request
+                from app.models.user import User 
+                g.current_user = User.query.get(int(user_identity))
+            else:
+                g.current_user = None
+        except Exception:
+            # This will be reached anytime the user is not logged in, but I 'm told that is how to do it.
+            g.current_user = None
 
-    login_manager.login_view = 'auth_bp.login'
-    login_manager.login_message_category = 'info'
+    # This function is called whenever a protected endpoint is accessed,
+    # and will return a custom response if the user is not logged in.
+    @jwt.unauthorized_loader
+    def unauthorized_callback(reason):
+        if request.path.startswith('/api/'):
+            return jsonify({"error": "Missing Authorization Header"}), 401
+        return redirect(url_for('auth_bp.login', next=request.url))
+
+    # This function is called whenever a protected endpoint is accessed,
+    # and will return a custom response if the JWT is invalid.
+    @jwt.invalid_token_loader
+    def invalid_token_callback(error):
+        # We are not clearing cookies here, as the user might have a valid refresh token.
+        if request.path.startswith('/api/'):
+            return jsonify({"error": "Invalid token", "message": str(error)}), 422
+        return redirect(url_for('auth_bp.login', next=request.url))
+
+    # Custom expired token handler to auto-refresh for web clients
+    @jwt.expired_token_loader
+    def expired_token_callback(jwt_header, jwt_payload):
+        # Check if the request is from a web browser (expects cookies)
+        if request.cookies.get('refresh_token_cookie'):
+            try:
+                # This is a simplified example. In a real app, you would want to
+                # use the refresh token to get a new access token.
+                # Here we redirect to a refresh endpoint that will handle it.
+                return redirect(url_for('auth_bp.refresh_and_retry', original_url=request.url))
+            except Exception as e:
+                # If refresh fails, redirect to login
+                resp = redirect(url_for('auth_bp.login'))
+                return resp
+        # For API clients (mobile), return a JSON error
+        return jsonify({"error": "Token has expired"}), 401
 
     # blueprints
-
     from app.blueprints.main.routes import main_bp
     app.register_blueprint(main_bp)
 
     from app.blueprints.auth.routes import auth_bp
-    app.register_blueprint(auth_bp)
-
+    app.register_blueprint(auth_bp, url_prefix='/auth')
+    
+    # Register other blueprints
     from app.blueprints.user.routes import user_bp
-    app.register_blueprint(user_bp)
+    app.register_blueprint(user_bp, url_prefix='/user')
 
     from app.blueprints.uploads.routes import uploads_bp
-    app.register_blueprint(uploads_bp)
+    app.register_blueprint(uploads_bp, url_prefix='/uploads')
 
     from app import models
 
     #========= ENABLE REMOTE FILE DIRECTORY FOR MAP APP FILES =============
-
     if app.config.get('ENABLE_JS_APP_ROUTE'):
-        rel_map_app_path = os.environ.get('REL_MAP_APP_PATH',"/static/mapapp") # default to a local folder if not set
+        rel_map_app_path = os.environ.get('REL_MAP_APP_PATH', "/static/mapapp")  # default to a local folder if not set
         full_map_app_path = os.path.abspath(rel_map_app_path)
 
         from flask import send_from_directory
@@ -68,14 +105,6 @@ def create_app(config_name):
     #========= END ENABLE REMOTE FILE DIRECTORY FOR MAP APP FILES =============
 
     return app
-
-@login_manager.unauthorized_handler
-def unauthorized():
-    if request.path.startswith('/api/') or request.path.startswith('/file/'):
-        return jsonify({"error": "Unauthorized"}), 403
-    # For non-API routes, do the default redirect
-    else:
-        return redirect(url_for(login_manager.login_view, next=request.url))
     
 def setup_logging(app):
     """Configure basic logging to stderr."""
@@ -130,4 +159,3 @@ def setup_storage(app):
 
     else:
         raise ValueError("Invalid STORAGE_SOURCE value")
-    

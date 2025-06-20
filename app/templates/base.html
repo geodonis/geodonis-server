@@ -25,10 +25,6 @@
         }
     </style>
     {% block head %}
-        {% if has_api_call %}
-        <meta name="csrf-token" content="{{ csrf_token() }}">
-        <script src="{{ url_for('static', filename='js/custom_fetch.js') }}"></script>
-        {% endif %}
     {% endblock %}
 </head>
 <body>
@@ -40,13 +36,13 @@
                     <span class="navbar-toggler-icon"></span>
                 </button>
                 <div class="collapse navbar-collapse" id="navbarNav">
-                    {% if current_user.is_authenticated %}
+                    {% if g.current_user.is_authenticated %}
                         <span class="navbar-text welcome-message">
-                            {{ current_user.username }}
+                            {{ g.current_user.username }}
                         </span>
                     {% endif %}
                     <ul class="navbar-nav ms-auto">
-                        {% if current_user.is_authenticated %}
+                        {% if g.current_user.is_authenticated %}
                             <li class="nav-item"><a class="nav-link" href="{{ url_for('main_bp.index') }}">Home</a></li>
                             <li class="nav-item"><a class="nav-link" href="{{ url_for('user_bp.edit_account') }}">Account</a></li>
                             <li class="nav-item"><a class="nav-link" href="#" onclick="showFeedbackForm()">Contact/Feedback</a></li>

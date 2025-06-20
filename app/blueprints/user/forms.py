@@ -1,10 +1,8 @@
-# app/user/forms.py
-
+from flask import g
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, BooleanField, SubmitField
 from wtforms.validators import DataRequired, Email, ValidationError, EqualTo, Length, Optional
 from app.models.user import User
-from flask_login import current_user
 
 class ResetPasswordForm(FlaskForm):
     password = PasswordField('New Password', validators=[
@@ -65,7 +63,7 @@ class EditAccountForm(FlaskForm):
     submit = SubmitField('Update Account')
 
     def validate_email(self, email):
-        if email.data and email.data != current_user.email:
+        if email.data and email.data != g.current_user.email:
             user = User.query.filter_by(email=email.data).first()
             if user is not None:
                 raise ValidationError('Please use a different email address.')
