@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request, render_template, current_app
-from app.common.utils.standard_exceptions import ClientError, endpoint_exception_handler
+from app.common.utils.standard_exceptions import APIClientError, api_error_response_exception
 from werkzeug.utils import secure_filename
 from marshmallow import Schema, fields, ValidationError
 from flask_jwt_extended import jwt_required
@@ -16,7 +16,7 @@ class UploadFileSchema(Schema):
 
 upload_file_schema = UploadFileSchema()
 
-@uploads_bp.route('/upload-test', methods=['GET'])
+@uploads_bp.route('/uploads/upload-test', methods=['GET'])
 @jwt_required()
 def upload_test():
     return render_template('uploads/upload_test.html')
@@ -29,22 +29,22 @@ def upload_file():
         try:
             data = upload_file_schema.load(request.form)
         except ValidationError as e:
-            raise ClientError(f"Invalid input: {str(e)}") from e # All these were client errors instead of plain exceptions
+            raise APIClientError(f"Invalid input: {str(e)}") from e # All these were client errors instead of plain exceptions
 
         file_type = data['file_type']
         file_name = secure_filename(data['file_name'])
         update = data['update']
 
         if update:
-            raise ClientError("Updates not currently enabled!")
+            raise APIClientError("Updates not currently enabled!")
 
         # Check if file was included in the request
         if 'file' not in request.files:
-            raise ClientError("No file part in the request")
+            raise APIClientError("No file part in the request")
         
         file = request.files['file']
         if file.filename == '':
-            raise ClientError("No file selected for uploading")
+            raise APIClientError("No file selected for uploading")
 
         # Check file existence and update flag
         file_storage = current_app.config['FILE_STORAGE']
@@ -52,9 +52,9 @@ def upload_file():
         file_exists = file_storage.file_exists(folder_key, file_name)
 
         if file_exists and not update:
-            raise ClientError("File already exists and update flag is false")
+            raise APIClientError("File already exists and update flag is false")
         if not file_exists and update:
-            raise ClientError("File does not exist and update flag is true")
+            raise APIClientError("File does not exist and update flag is true")
 
         # Save the file
         file_storage.save_file_object(folder_key, file_name, file)
@@ -67,4 +67,4 @@ def upload_file():
         }), 200
 
     except Exception as e:
-        return endpoint_exception_handler(e)
+        return api_error_response_exception(e)

@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, make_response, g
 from urllib.parse import urlsplit
 from app import db
+from app.common.utils.standard_exceptions import api_error_response
 from app.models.user import User
 from app.blueprints.auth.forms import LoginForm
 from flask_jwt_extended import (
@@ -63,7 +64,7 @@ def login():
             
     return render_template('auth/login.html', title='Sign In', form=form)
 
-@auth_bp.route('/logout')
+@auth_bp.route('/auth/logout')
 def logout():
     """
     Handles the logout process for web users.
@@ -74,7 +75,7 @@ def logout():
     flash('You have been successfully logged out.', 'success')
     return resp
 
-@auth_bp.route('/refresh-and-retry')
+@auth_bp.route('/auth/refresh-and-retry')
 @jwt_required(refresh=True) # This route requires a valid refresh token
 def refresh_and_retry():
     """
@@ -117,12 +118,12 @@ def api_login():
     """
     data = request.get_json()
     if not data:
-        return jsonify({"error": "Missing JSON in request"}), 400
+        return api_error_response("Missing JSON in request", 400)
 
     email = data.get('email', None)
     password = data.get('password', None)
     if not email or not password:
-        return jsonify({"error": "Missing email or password"}), 400
+        return api_error_response("Missing email or password", 400)
 
     user = User.query.filter_by(email=email).first()
     if user and user.check_password(password):
@@ -130,11 +131,11 @@ def api_login():
         additional_claims = {"is_super_user": user.is_super_user}
         access_token = create_access_token(identity=str(user.id), fresh=True, additional_claims=additional_claims)
         refresh_token = create_refresh_token(identity=str(user.id))
-        return jsonify(access_token=access_token, refresh_token=refresh_token), 200
+        return jsonify(success=True, access_token=access_token, refresh_token=refresh_token), 200
     
-    return jsonify({"error": "Invalid credentials"}), 401
+    return api_error_response("Invalid credentials", 401)
 
-@auth_bp.route('/api/refresh', methods=['POST'])
+@auth_bp.route('/api/auth/refresh', methods=['POST'])
 @jwt_required(refresh=True) # Requires a valid refresh token in the 'Authorization' header
 def api_refresh():
     """
@@ -149,9 +150,9 @@ def api_refresh():
     additional_claims = {"is_super_user": user.is_super_user if user else False}
     new_access_token = create_access_token(identity=str(current_user_id), fresh=False, additional_claims=additional_claims)
     
-    return jsonify(access_token=new_access_token), 200
+    return jsonify(success=True, access_token=new_access_token), 200
 
-@auth_bp.route('/api/logout', methods=['POST'])
+@auth_bp.route('/api/auth/logout', methods=['POST'])
 @jwt_required()
 def api_logout():
     """
@@ -163,4 +164,4 @@ def api_logout():
     # For blocklisting, you would add the token's jti (JWT ID) to a blocklist here.
     # jti = get_jwt()['jti']
     # blocklist.add(jti)
-    return jsonify({"message": "Logout successful. Please discard the tokens."}), 200
+    return jsonify({"success": "true", "message": "Logout successful. Please discard the tokens."}), 200

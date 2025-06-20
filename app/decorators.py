@@ -1,6 +1,7 @@
 from functools import wraps
 from flask import jsonify, g
 from flask_jwt_extended import get_jwt
+from app.common.utils.standard_exceptions import api_error_response
 
 def admin_required(f):
     """
@@ -16,11 +17,13 @@ def admin_required(f):
         
         # g.current_user is loaded in the @app.before_request hook in __init__.py
         if not g.current_user:
-            return jsonify({'error': 'Authentication required'}), 401
+            #error: 'Authentication required'
+            return api_error_response('Authentication required', 401)
 
         claims = get_jwt()
         if claims.get('is_super_user', False):
             return f(*args, **kwargs)
         else:
-            return jsonify({'error': 'Admin access required'}), 403
+            # error: 'Admin access required'
+            return api_error_response('Admin access required', 403)
     return decorator

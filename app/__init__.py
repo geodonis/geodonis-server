@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager, get_jwt_identity, get_jwt, verify_jwt_in_request, create_access_token, set_access_cookies
 from flask_migrate import Migrate
 from config import config
+from app.common.utils.standard_exceptions import api_error_response
 import logging
 import os
 
@@ -47,8 +48,10 @@ def create_app(config_name):
     @jwt.unauthorized_loader
     def unauthorized_callback(reason):
         if request.path.startswith('/api/'):
-            return jsonify({"error": "Missing Authorization Header"}), 401
-        return redirect(url_for('auth_bp.login', next=request.url))
+            # error: "Missing Authorization Header"
+            return api_error_response("Missing Authorization Header", 401)
+        else:
+            return redirect(url_for('auth_bp.login', next=request.url))
 
     # This function is called whenever a protected endpoint is accessed,
     # and will return a custom response if the JWT is invalid.
@@ -56,14 +59,20 @@ def create_app(config_name):
     def invalid_token_callback(error):
         # We are not clearing cookies here, as the user might have a valid refresh token.
         if request.path.startswith('/api/'):
-            return jsonify({"error": "Invalid token", "message": str(error)}), 422
-        return redirect(url_for('auth_bp.login', next=request.url))
+            # error: "Invalid token"
+            error_msg = "Invalid token: " + str(error)
+            return api_error_response(error_msg, 422)
+        else:
+            return redirect(url_for('auth_bp.login', next=request.url))
 
     # Custom expired token handler to auto-refresh for web clients
     @jwt.expired_token_loader
     def expired_token_callback(jwt_header, jwt_payload):
         # Check if the request is from a web browser (expects cookies)
-        if request.cookies.get('refresh_token_cookie'):
+        if request.path.startswith('/api/'):
+            # error: "Token has expired"
+            return api_error_response("Token has expired", 401)
+        else:
             try:
                 # This is a simplified example. In a real app, you would want to
                 # use the refresh token to get a new access token.
@@ -73,22 +82,21 @@ def create_app(config_name):
                 # If refresh fails, redirect to login
                 resp = redirect(url_for('auth_bp.login'))
                 return resp
-        # For API clients (mobile), return a JSON error
-        return jsonify({"error": "Token has expired"}), 401
+        
 
     # blueprints
     from app.blueprints.main.routes import main_bp
     app.register_blueprint(main_bp)
 
     from app.blueprints.auth.routes import auth_bp
-    app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.register_blueprint(auth_bp)
     
     # Register other blueprints
     from app.blueprints.user.routes import user_bp
-    app.register_blueprint(user_bp, url_prefix='/user')
+    app.register_blueprint(user_bp)
 
     from app.blueprints.uploads.routes import uploads_bp
-    app.register_blueprint(uploads_bp, url_prefix='/uploads')
+    app.register_blueprint(uploads_bp)
 
     from app import models
 

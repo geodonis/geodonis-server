@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 user_bp = Blueprint('user_bp', __name__)
 
-@user_bp.route('/create_user', methods=['GET', 'POST'])
+@user_bp.route('/user/create_user', methods=['GET', 'POST'])
 @jwt_required()
 @admin_required
 def create_user():
@@ -73,7 +73,7 @@ def create_user():
         
     return render_template('user/create_user.html', title='Create User', form=form)
 
-@user_bp.route('/initiate_reset_password', methods=['GET', 'POST'])
+@user_bp.route('/user/initiate_reset_password', methods=['GET', 'POST'])
 @jwt_required()
 @admin_required
 def initiate_reset_password():
@@ -162,7 +162,7 @@ def reset_password(token):
         logger.exception("Unexpected error in password reset process")
         raise InternalServerError("An unexpected error occurred")
 
-@user_bp.route('/edit_account', methods=['GET', 'POST'])
+@user_bp.route('/user/edit_account', methods=['GET', 'POST'])
 @jwt_required()
 def edit_account():
     form = EditAccountForm()

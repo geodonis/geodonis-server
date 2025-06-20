@@ -13,6 +13,10 @@ progress:
 notes:
 
 - I think I want a "working" animation while we wait for the submit to be processed. And maybe disable the submit button.
+- todo: document some of my conventions:
+    - security (jwt, cookies, csrf) and protected submit of forms (data-protected-submit)
+    - end point format (not protected: at top level, protected: in a namespace, api: /api/ plau namespace if protected)
+    - API response format
 
 ## 6/19/25
 
