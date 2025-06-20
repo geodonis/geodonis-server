@@ -8,7 +8,7 @@
                 <h2 class="text-center">Create User</h2>
             </div>
             <div class="card-body">
-                <form class="protected-form" method="post">
+                <form action="" method="post" data-protected-submit>
                     {{ form.hidden_tag() }}
                     <div class="mb-3">
                         {{ form.email.label(class="form-label") }}

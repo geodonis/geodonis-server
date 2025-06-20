@@ -1,5 +1,21 @@
 # Infolog
 
+## 6/20/25
+
+progress:
+
+- update the code for protected submit:
+    - always include the handler on the body listening for a submit from a form with tag 'data-protected-submit'
+    - developer labels protected forms with the tag 'data-protected-submit' to attach the csrf.
+    - handle different responses properly, updating the web page.
+
+
+notes:
+
+- I think I want a "working" animation while we wait for the submit to be processed. And maybe disable the submit button.
+
+## 6/19/25
+
 progress:
 
 - worked on jwt for the web site
